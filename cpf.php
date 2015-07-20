@@ -3,11 +3,12 @@
 class ConsultaCPF
 {
 	private $cpf_number;
+	private $data_nasc;
 	private $errno;
-	private $xml;
+	private $json;
 
 	const PASSWORD = 'Sup3RbP4ssCr1t0grPhABr4sil';
-	const URL = 'https://movel01.receita.fazenda.gov.br/servicos-rfb/ConsultaCPF';
+	const URL = 'https://movel01.receita.fazenda.gov.br/servicos-rfb/v2/IRPF/cpf';
 
 	public function SetCPF($cpf)
 	{
@@ -22,6 +23,10 @@ class ConsultaCPF
 		}
 	}
 
+	public function SetNasc($data){
+		$this->data_nasc = $data;
+	}
+
 	public function consultar()
 	{
 		if( !isset( $this->cpf_number ) )
@@ -29,7 +34,7 @@ class ConsultaCPF
 			return false;
 		}
 
-		$this->xml = $this->consulta_receita();
+		$this->json = $this->consulta_receita();
 
 		if( isset( $this->errno ) )
 		{
@@ -42,10 +47,21 @@ class ConsultaCPF
 
 	private function consulta_receita(){
 		$cpf = $this->cpf_number;
+		$data_nasc = $this->data_nasc;
+		$token = hash_hmac('sha1', $cpf.$data_nasc, self::PASSWORD);
+
+		$headers = array(
+			"token: ${token}",
+			"plataforma: iPhone OS",
+			"dispositivo: iPhone",
+			"aplicativo: Pessoa Física",
+			"versao: 8.3",
+			"versao_app: 4.1"
+		);
+
 		unset($this->errno);
 
-		$token = hash_hmac('sha1', $cpf, self::PASSWORD);
-		$post_data = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\" ?><soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" ><soap:Header><token>${token}</token><aplicativo>Pessoa Física</aplicativo><plataforma>iPhone OS</plataforma><versao>8.3</versao><dispositivo>iPhone</dispositivo><versao_app>3.0</versao_app></soap:Header><soap:Body><soap:obtemSituacaoCadastral xmlns:soap=\"http://soap.ws.cpf.service.mobile.rfb.serpro.gov.br/\"><cpf>${cpf}</cpf></soap:obtemSituacaoCadastral></soap:Body></soap:Envelope>";
+		$post_data = "cpf=${cpf}&dataNascimento=${data_nasc}";
 
 		$request = curl_init();
 
@@ -54,10 +70,11 @@ class ConsultaCPF
 		curl_setopt($request, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($request, CURLOPT_SSL_VERIFYHOST, false);
 		curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($request, CURLOPT_HTTPHEADER, $headers);
 
 		$resp = curl_exec($request);
 
-		if(! preg_match("/<ns3:MensagemRetorno>OK/", $resp) )
+		if( preg_match("/Tente novamente mais tarde/", $resp) )
 		{
 			$this->errno = 1;
 		}
@@ -65,10 +82,10 @@ class ConsultaCPF
 		return $resp;
 	}
 
-	public function GetXml(){
-		if( isset($this->xml) )
+	public function GetJson(){
+		if( isset($this->json) )
 		{
-			return $this->xml;
+			return $this->json;
 		}
 
 		else
@@ -114,18 +131,20 @@ class ConsultaCPF
 }
 
 
-/*
 
+
+/*
 :::Exemplo de uso:::
 
 $cpf = new ConsultaCPF();
 $cpf->SetCPF("13326724691");
+$cpf->SetNasc("14121947"); // dia mes ano
 
 if($cpf->consultar()){
-	print $cpf->GetXml()."\n";
+	print $cpf->Getjson()."\n";
 } else {
 	print "Consulta falhou: \n";
 	print $cpf->error()."\n";
 }
-
 */
+
