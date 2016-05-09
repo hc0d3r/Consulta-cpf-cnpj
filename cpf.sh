@@ -11,7 +11,7 @@ if [[ -z "$OPENSSL" ]]; then #se vazio
 fi
 
 CURL=`which curl`
-if [[ -z "$OPENSSL" ]]; then #se vazio
+if [[ -z "$CURL" ]]; then #se vazio
     echo "curl não encontrado!"
     exit
 fi
